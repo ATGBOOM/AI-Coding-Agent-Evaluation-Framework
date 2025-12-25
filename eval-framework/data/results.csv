@@ -1,0 +1,1 @@
+task_id,problem_name,correctness_passed,num_tests_passed,num_tests_total,confidence_level,has_approach,approach_quality,has_tests,explainability_score,descriptive_naming,single_responsibility,small_functions,tdd,logging_ready,edge_cases_handled,design_score,overall_score,execution_time_ms,response_tokens,errors
