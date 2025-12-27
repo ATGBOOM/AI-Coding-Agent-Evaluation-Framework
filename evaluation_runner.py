@@ -13,6 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from dataset.humanEvalDataset import HumanEvalDataset
 from models.llm_response import LLMSolutionResponse
+from utils.test_executor import TestExecutor, TestResult
 
 
 class EvaluationRunner:
@@ -43,6 +44,9 @@ class EvaluationRunner:
 
         # Create structured output chain
         self.structured_llm = self.llm.with_structured_output(LLMSolutionResponse)
+
+        # Initialize test executor
+        self.test_executor = TestExecutor(timeout=5)
 
     def generate_solution(self, task_id: int) -> Dict:
         """
@@ -95,6 +99,32 @@ Provide your solution with:
         # Generate structured response
         response: LLMSolutionResponse = self.structured_llm.invoke(formatted_prompt)
 
+        # Run canonical solution against test cases to validate tests
+        print("\nValidating canonical solution against test cases...")
+        canonical_result = self.test_executor.validate_canonical_solution(
+            canonical_solution=problem['canonical_solution'],
+            test_code=problem['test'],
+            entry_point=problem['entry_point'],
+            prompt=prompt_text
+        )
+
+        # Run LLM solution against dataset test cases
+        print("Validating LLM solution against dataset test cases...")
+        llm_dataset_result = self.test_executor.validate_llm_solution(
+            llm_solution=response.solution,
+            test_code=problem['test'],
+            entry_point=problem['entry_point']
+        )
+
+        # Run LLM solution against LLM-generated test cases
+        llm_tests_result = None
+        if response.test_cases:
+            print("Validating LLM solution against LLM-generated test cases...")
+            llm_tests_result = self.test_executor.run_llm_generated_tests(
+                solution_code=response.solution,
+                llm_test_cases=response.test_cases
+            )
+
         return {
             'task_id': task_id,
             'prompt': prompt_text,
@@ -104,7 +134,10 @@ Provide your solution with:
             'test_cases': response.test_cases,
             'canonical_solution': problem['canonical_solution'],
             'entry_point': problem['entry_point'],
-            'test': problem['test']
+            'test': problem['test'],
+            'canonical_test_result': canonical_result,
+            'llm_dataset_test_result': llm_dataset_result,
+            'llm_tests_result': llm_tests_result
         }
 
     def format_result(self, result: Dict) -> str:
@@ -119,6 +152,22 @@ Provide your solution with:
         """
         separator = "=" * 80
 
+        # Format test results
+        def format_test_result(test_result: Optional[TestResult], title: str) -> str:
+            if not test_result:
+                return f"{title}: Not run"
+
+            status = "✓ PASSED" if test_result.passed else "✗ FAILED"
+            result_str = f"{title}: {status}"
+
+            if not test_result.passed:
+                result_str += f"\n  Errors: {'; '.join(test_result.errors[:2])}"  # Show first 2 errors
+
+            if test_result.timeout:
+                result_str += "\n  (Execution timed out)"
+
+            return result_str
+
         formatted = f"""
 {separator}
 TASK ID: {result['task_id']}
@@ -132,6 +181,13 @@ EXPLAINABILITY
 {separator}
 Line of Thought: {result['thought']}
 Confidence Level: {result['confidence']}
+
+{separator}
+TEST RESULTS
+{separator}
+{format_test_result(result['canonical_test_result'], '1. Canonical Solution vs Dataset Tests')}
+{format_test_result(result['llm_dataset_test_result'], '2. LLM Solution vs Dataset Tests')}
+{format_test_result(result['llm_tests_result'], '3. LLM Solution vs LLM-Generated Tests')}
 
 {separator}
 LLM GENERATED SOLUTION:
