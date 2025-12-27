@@ -1,0 +1,6 @@
+# Ignore all CSV result files except the template
+*.csv
+!results.csv
+
+# Allow results.csv if it's only headers (template)
+# Actual result files should use different names like results_*.csv
