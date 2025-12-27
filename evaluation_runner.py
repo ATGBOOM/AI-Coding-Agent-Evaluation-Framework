@@ -8,9 +8,11 @@ and comparing results against canonical solutions.
 import os
 from typing import Dict, Optional
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
 
 from dataset.humanEvalDataset import HumanEvalDataset
-from utils.llm_client import GroqClient
+from models.llm_response import LLMSolutionResponse
 
 
 class EvaluationRunner:
@@ -30,15 +32,19 @@ class EvaluationRunner:
             raise ValueError("GROQ_API_KEY not found in environment or provided")
 
         self.dataset = HumanEvalDataset()
-        self.llm_client = GroqClient(
+
+        # Initialize LangChain ChatGroq with structured output
+        self.llm = ChatGroq(
             api_key=self.api_key,
             model=os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile'),
             temperature=float(os.getenv('GROQ_TEMPERATURE', '0.1')),
             max_tokens=int(os.getenv('GROQ_MAX_TOKENS', '2048'))
         )
-        self.llm_client.initialize()
 
-    def generate_solution(self, task_id: int) -> Dict[str, str]:
+        # Create structured output chain
+        self.structured_llm = self.llm.with_structured_output(LLMSolutionResponse)
+
+    def generate_solution(self, task_id: int) -> Dict:
         """
         Generate a solution for a given task.
 
@@ -49,27 +55,59 @@ class EvaluationRunner:
             Dictionary containing task info, LLM response, and canonical solution
         """
         problem = self.dataset.getSingleProblem(task_id)
-        prompt = problem['prompt']
+        prompt_text = problem['prompt']
 
-        # Create a clear instruction for the LLM
-        instruction = (
-            f"Complete the following Python function. "
-            f"Only provide the implementation code, no explanations:\n\n{prompt}"
+        # Create a comprehensive prompt that follows design principles
+        design_principles = """
+Design Principles to Follow:
+1. Descriptive Naming: Use clear, descriptive variable and function names
+2. Single Responsibility: Each function should do one thing well
+3. Small Functions: Keep functions under 15 lines
+4. Test-Driven Development: Write test cases for your solution
+5. Logging Ready: Never use print() statements; use proper logging or return values
+6. Edge Cases: Handle edge cases with proper validation and error handling
+"""
+
+        # Create the prompt template
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", "You are an expert Python developer who writes clean, well-tested code following best practices."),
+            ("user", """Complete the following Python coding task.
+
+{design_principles}
+
+Problem:
+{problem_prompt}
+
+Provide your solution with:
+1. A brief line of thought explaining your approach
+2. Your confidence level (High, Medium, or Low)
+3. The complete solution code following all design principles
+4. Test cases to validate the solution (using assert statements)
+""")
+        ])
+
+        # Format the prompt
+        formatted_prompt = prompt_template.format_messages(
+            design_principles=design_principles,
+            problem_prompt=prompt_text
         )
 
-        # Generate solution using LLM
-        llm_response = self.llm_client.generate_with_retry(instruction)
+        # Generate structured response
+        response: LLMSolutionResponse = self.structured_llm.invoke(formatted_prompt)
 
         return {
             'task_id': task_id,
-            'prompt': prompt,
-            'llm_solution': llm_response,
+            'prompt': prompt_text,
+            'thought': response.thought,
+            'confidence': response.confidence,
+            'llm_solution': response.solution,
+            'test_cases': response.test_cases,
             'canonical_solution': problem['canonical_solution'],
             'entry_point': problem['entry_point'],
             'test': problem['test']
         }
 
-    def format_result(self, result: Dict[str, str]) -> str:
+    def format_result(self, result: Dict) -> str:
         """
         Format evaluation result for display.
 
@@ -90,9 +128,20 @@ PROBLEM PROMPT:
 {result['prompt']}
 
 {separator}
+EXPLAINABILITY
+{separator}
+Line of Thought: {result['thought']}
+Confidence Level: {result['confidence']}
+
+{separator}
 LLM GENERATED SOLUTION:
 {separator}
 {result['llm_solution']}
+
+{separator}
+LLM GENERATED TEST CASES:
+{separator}
+{result['test_cases'] if result['test_cases'] else 'No test cases provided'}
 
 {separator}
 CANONICAL SOLUTION:
