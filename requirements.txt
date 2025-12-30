@@ -16,6 +16,10 @@ seaborn>=0.12.0
 jupyter>=1.0.0
 notebook>=7.0.0
 
+# UI Dashboard
+streamlit>=1.28.0
+plotly>=5.17.0
+
 # Code parsing and analysis
 # ast is built-in, no need to install
 
