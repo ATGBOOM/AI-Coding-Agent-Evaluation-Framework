@@ -6,7 +6,7 @@ and comparing results against canonical solutions.
 """
 
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,6 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from dataset.humanEvalDataset import HumanEvalDataset
 from models.llm_response import LLMSolutionResponse
 from utils.test_executor import TestExecutor, TestResult
+from evaluators.correctness import CorrectnessEvaluator, CorrectnessResult
 
 
 class EvaluationRunner:
@@ -47,6 +48,9 @@ class EvaluationRunner:
 
         # Initialize test executor
         self.test_executor = TestExecutor(timeout=5)
+
+        # Initialize correctness evaluator
+        self.correctness_evaluator = CorrectnessEvaluator(timeout=5)
 
     def generate_solution(self, task_id: int) -> Dict:
         """
@@ -108,22 +112,27 @@ Provide your solution with:
             prompt=prompt_text
         )
 
-        # Run LLM solution against dataset test cases
-        print("Validating LLM solution against dataset test cases...")
-        llm_dataset_result = self.test_executor.validate_llm_solution(
-            llm_solution=response.solution,
+        # Evaluate LLM solution correctness against dataset test cases
+        print("Evaluating LLM solution against dataset test cases...")
+        llm_correctness_result = self.correctness_evaluator.evaluate(
+            solution_code=response.solution,
             test_code=problem['test'],
             entry_point=problem['entry_point']
         )
 
-        # Run LLM solution against LLM-generated test cases
+        # For backwards compatibility, keep the original test result
+        llm_dataset_result = llm_correctness_result.test_result
+
+        # Evaluate LLM solution against LLM-generated test cases
         llm_tests_result = None
+        llm_tests_correctness = None
         if response.test_cases:
-            print("Validating LLM solution against LLM-generated test cases...")
-            llm_tests_result = self.test_executor.run_llm_generated_tests(
+            print("Evaluating LLM solution against LLM-generated test cases...")
+            llm_tests_correctness = self.correctness_evaluator.evaluate_with_llm_tests(
                 solution_code=response.solution,
                 llm_test_cases=response.test_cases
             )
+            llm_tests_result = llm_tests_correctness.test_result
 
         return {
             'task_id': task_id,
@@ -137,7 +146,9 @@ Provide your solution with:
             'test': problem['test'],
             'canonical_test_result': canonical_result,
             'llm_dataset_test_result': llm_dataset_result,
-            'llm_tests_result': llm_tests_result
+            'llm_tests_result': llm_tests_result,
+            'correctness_result': llm_correctness_result,
+            'llm_tests_correctness': llm_tests_correctness
         }
 
     def format_result(self, result: Dict) -> str:
@@ -152,18 +163,21 @@ Provide your solution with:
         """
         separator = "=" * 80
 
-        # Format test results
-        def format_test_result(test_result: Optional[TestResult], title: str) -> str:
-            if not test_result:
-                return f"{title}: Not run"
+        # Format correctness metrics
+        def format_correctness(correctness: Optional[CorrectnessResult]) -> str:
+            if not correctness:
+                return "  Not evaluated"
 
-            status = "✓ PASSED" if test_result.passed else "✗ FAILED"
-            result_str = f"{title}: {status}"
+            status = "✓ PASSED" if correctness.passed else "✗ FAILED"
+            result_str = f"  Status: {status}\n"
+            result_str += f"  Tests Passed: {correctness.num_passed}/{correctness.total_tests}\n"
+            result_str += f"  Test Pass Rate: {correctness.test_pass_rate:.2f}%\n"
+            result_str += f"  Pass@1: {correctness.pass_at_1:.2f}"
 
-            if not test_result.passed:
-                result_str += f"\n  Errors: {'; '.join(test_result.errors[:2])}"  # Show first 2 errors
+            if not correctness.passed and correctness.errors:
+                result_str += f"\n  Errors: {'; '.join(correctness.errors[:2])}"  # Show first 2 errors
 
-            if test_result.timeout:
+            if correctness.test_result and correctness.test_result.timeout:
                 result_str += "\n  (Execution timed out)"
 
             return result_str
@@ -183,11 +197,16 @@ Line of Thought: {result['thought']}
 Confidence Level: {result['confidence']}
 
 {separator}
-TEST RESULTS
+CORRECTNESS METRICS
 {separator}
-{format_test_result(result['canonical_test_result'], '1. Canonical Solution vs Dataset Tests')}
-{format_test_result(result['llm_dataset_test_result'], '2. LLM Solution vs Dataset Tests')}
-{format_test_result(result['llm_tests_result'], '3. LLM Solution vs LLM-Generated Tests')}
+Dataset Test Correctness:
+{format_correctness(result.get('correctness_result'))}
+
+LLM-Generated Test Correctness:
+{format_correctness(result.get('llm_tests_correctness'))}
+
+Canonical Solution Validation:
+  Status: {'✓ PASSED' if result.get('canonical_test_result') and result['canonical_test_result'].passed else '✗ FAILED' if result.get('canonical_test_result') else 'Not run'}
 
 {separator}
 LLM GENERATED SOLUTION:
@@ -219,15 +238,19 @@ CANONICAL SOLUTION:
         result = self.generate_solution(task_id)
         print(self.format_result(result))
 
-    def run_batch_evaluation(self, start_id: int = 0, end_id: int = 5) -> None:
+    def run_batch_evaluation(self, start_id: int = 0, end_id: int = 164) -> List[Dict]:
         """
-        Run evaluation on multiple tasks.
+        Run evaluation on multiple tasks and aggregate correctness metrics.
 
         Args:
             start_id: Starting task ID
             end_id: Ending task ID (exclusive)
+
+        Returns:
+            List of evaluation results
         """
         results = []
+        correctness_results = []
 
         for task_id in range(start_id, end_id):
             print(f"\nEvaluating task {task_id}...")
@@ -235,7 +258,27 @@ CANONICAL SOLUTION:
                 result = self.generate_solution(task_id)
                 results.append(result)
                 print(self.format_result(result))
+
+                # Collect correctness results for aggregation
+                if result.get('correctness_result'):
+                    correctness_results.append(result['correctness_result'])
+
             except Exception as e:
                 print(f"Error evaluating task {task_id}: {e}")
+
+        # Aggregate and display correctness metrics
+        if correctness_results:
+            print("\n" + "=" * 80)
+            print("BATCH EVALUATION COMPLETE")
+            print("=" * 80)
+
+            # Calculate aggregated metrics with different k values
+            aggregated_metrics = self.correctness_evaluator.aggregate_results(
+                results=correctness_results,
+                k_values=[1] + ([5, 10] if len(correctness_results) >= 5 else [])
+            )
+
+            # Display aggregated metrics
+            print(self.correctness_evaluator.format_aggregated_metrics(aggregated_metrics))
 
         return results
