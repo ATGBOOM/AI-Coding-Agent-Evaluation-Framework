@@ -132,7 +132,7 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         metric_type=MetricType.TEXT,
         description="LLM's confidence in the solution (High/Medium/Low)",
         icon="🎓",
-        extractor=lambda result: result.get('confidence')
+        extractor=lambda result: result.get('explainability_result').confidence_level if result.get('explainability_result') else None
     ),
     MetricConfig(
         key="has_thought",
@@ -141,7 +141,7 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         metric_type=MetricType.BINARY,
         description="Whether the LLM provided line of thought",
         icon="💭",
-        extractor=lambda result: bool(result.get('thought'))
+        extractor=lambda result: result.get('explainability_result').has_thought if result.get('explainability_result') else None
     ),
     MetricConfig(
         key="has_tests",
@@ -152,6 +152,15 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         icon="🧪",
         extractor=lambda result: bool(result.get('test_cases'))
     ),
+    MetricConfig(
+        key="completeness",
+        label="Completeness of Explanation",
+        category=MetricCategory.EXPLAINABILITY,
+        metric_type=MetricType.COUNT,
+        description="The completeness of the explanation provided",
+        icon="✅",
+        extractor=lambda result: result.get('explainability_result').completeness if result.get('explainability_result') else None
+    )
 ]
 
 # =============================================================================
