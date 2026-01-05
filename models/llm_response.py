@@ -24,6 +24,10 @@ class LLMSolutionResponse(BaseModel):
         description="Brief line of thought explaining the approach to solve the problem"
     )
 
+    completeness: str = Field(
+        description="Explanation of algorithm choice, key variables/functions, constraints and assumptions, and edge case consideration"
+    )
+
     confidence: ConfidenceLevel = Field(
         description="Confidence level in the solution (High, Medium, or Low)"
     )
