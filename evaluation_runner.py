@@ -15,6 +15,7 @@ from dataset.humanEvalDataset import HumanEvalDataset
 from models.llm_response import LLMSolutionResponse
 from utils.test_executor import TestExecutor, TestResult
 from evaluators.correctness import CorrectnessEvaluator, CorrectnessResult
+from evaluators.explainability import ExplainabilityEvaluator
 
 
 class EvaluationRunner:
@@ -51,6 +52,9 @@ class EvaluationRunner:
 
         # Initialize correctness evaluator
         self.correctness_evaluator = CorrectnessEvaluator(timeout=5)
+
+        # Initialize explainability evaluator
+        self.explainability_evaluator = ExplainabilityEvaluator()
 
     def generate_solution(self, task_id: int) -> Dict:
         """
@@ -91,6 +95,7 @@ Provide your solution with:
 2. Your confidence level (High, Medium, or Low)
 3. The complete solution code following all design principles
 4. Test cases to validate the solution (using assert statements)
+5. An explanation of your solution, covering algorithm choice, key variables/functions, constraints and assumptions, and edge case consideration
 """)
         ])
 
@@ -134,11 +139,16 @@ Provide your solution with:
             )
             llm_tests_result = llm_tests_correctness.test_result
 
+        # Evaluate explainability
+        explainability_result = self.explainability_evaluator.evaluate(
+            thought=response.thought,
+            confidence=response.confidence,
+            completeness=response.completeness
+        )
+
         return {
             'task_id': task_id,
             'prompt': prompt_text,
-            'thought': response.thought,
-            'confidence': response.confidence,
             'llm_solution': response.solution,
             'test_cases': response.test_cases,
             'canonical_solution': problem['canonical_solution'],
@@ -148,7 +158,8 @@ Provide your solution with:
             'llm_dataset_test_result': llm_dataset_result,
             'llm_tests_result': llm_tests_result,
             'correctness_result': llm_correctness_result,
-            'llm_tests_correctness': llm_tests_correctness
+            'llm_tests_correctness': llm_tests_correctness,
+            'explainability_result': explainability_result 
         }
 
     def format_result(self, result: Dict) -> str:
