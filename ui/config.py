@@ -132,11 +132,11 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         metric_type=MetricType.TEXT,
         description="LLM's confidence in the solution (High/Medium/Low)",
         icon="🎓",
-        extractor=lambda result: str(result.get('explainability_result').confidence_level) if result.get('explainability_result') else None
+        extractor=lambda result: result.get('explainability_result').confidence_level.value if result.get('explainability_result') and result.get('explainability_result').confidence_level is not None else None
     ),
     MetricConfig(
         key="thought",
-        label="Has Explanation",
+        label="Approach",
         category=MetricCategory.EXPLAINABILITY,
         metric_type=MetricType.BINARY,
         description="Whether the LLM provided line of thought",

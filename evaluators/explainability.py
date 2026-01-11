@@ -9,6 +9,7 @@ Evaluates:
 from typing import Dict, Any
 from enum import Enum
 from dataclasses import dataclass
+import re
 
 
 class ConfidenceLevel(Enum):
@@ -26,6 +27,7 @@ class ExplainabilityResult:
     approach_quality: float
     has_tests: bool
     completeness: str
+    completeness_dict: Dict[bool, list[str]]
     completeness_score: int
     explainability_score: float
 
@@ -37,6 +39,7 @@ class ExplainabilityResult:
             'approach_quality': self.approach_quality,
             'has_tests': self.has_tests,
             'completeness': self.completeness,
+            'completeness_dict': self.completeness_dict,
             'completeness_score': self.completeness_score,
             'explainability_score': self.explainability_score
         }
@@ -77,13 +80,16 @@ class ExplainabilityEvaluator:
                 - has_tests: bool
                 - explainability_score: float (0-1)
         """
+        completeness_dict = self.evaluate_completeness(completeness)
+
         return ExplainabilityResult(
             confidence_level=self.extract_confidence(confidence),
             thought=thought,
             approach_quality=self.score_approach_quality(thought),
             has_tests=bool(test_cases),
             completeness=completeness,
-            completeness_score=self.evaluate_completeness(completeness),
+            completeness_dict=completeness_dict,
+            completeness_score=len(completeness_dict[True])/(len(completeness_dict[False]) + len(completeness_dict[True])) * 100,
             explainability_score=0.0  # Placeholder, calculate below
         )
 
@@ -107,7 +113,7 @@ class ExplainabilityEvaluator:
         else:
             return ConfidenceLevel.UNKNOWN
 
-    def evaluate_completeness(self, completeness_text: str) -> int:
+    def evaluate_completeness(self, completeness_text: str) -> Dict[bool, list[str]]:
         """
         Evaluate completeness of explanation.
 
@@ -115,22 +121,27 @@ class ExplainabilityEvaluator:
             completeness_text: Explanation text
 
         Returns:
-            Completeness score as integer
+            Dictionary indicating presence of key aspects
         """
         # Simple heuristic: count number of key aspects mentioned
         score = 0.0
-        key_aspects = [
-            "algorithm",
-            "variables",
-            "functions",
-            "constraints",
-            "assumptions",
-            "edge cases"
-        ]
-        for aspect in key_aspects:
-            if aspect in completeness_text.lower():
-                score += 1
-        return score/len(key_aspects) * 100  
+
+        key_aspect_patterns = {
+            "algorithm": r"\balgorithm(s)?\b",
+            "variables": r"\bvariable(s)?\b",
+            "functions": r"\bfunction(s)?\b",
+            "constraints": r"\bconstraint(s)?\b",
+            "assumptions": r"\bassum(e|es|ed|ing|ption|ptions)\b",
+            "edge cases": r"\bedge[-\s]?case(s)?\b",
+        }
+
+        found = {True: [], False: []}
+        for name, pattern in key_aspect_patterns.items():
+            if re.search(pattern, completeness_text, re.IGNORECASE):
+                found[True].append(name)
+            else:
+                found[False].append(name)
+        return found
 
     def score_approach_quality(self, approach_text: str) -> float:
         """
