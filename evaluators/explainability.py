@@ -3,11 +3,12 @@ Explainability evaluator for LLM responses.
 
 Evaluates:
 1. Confidence level (High/Medium/Low)
-2. Presence and quality of explanations
+2. Quality of explanations
 """
 
 from typing import Dict, Any
 from enum import Enum
+from dataclasses import dataclass
 
 
 class ConfidenceLevel(Enum):
@@ -17,6 +18,28 @@ class ConfidenceLevel(Enum):
     LOW = "Low"
     UNKNOWN = "Unknown"
 
+@dataclass
+class ExplainabilityResult:
+    """Result from explainability evaluation."""
+    confidence_level: ConfidenceLevel
+    thought: str
+    approach_quality: float
+    has_tests: bool
+    completeness: str
+    completeness_score: int
+    explainability_score: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'confidence_level': self.confidence_level,
+            'thought': self.thought,
+            'approach_quality': self.approach_quality,
+            'has_tests': self.has_tests,
+            'completeness': self.completeness,
+            'completeness_score': self.completeness_score,
+            'explainability_score': self.explainability_score
+        }
 
 class ExplainabilityEvaluator:
     """Evaluates explainability of LLM responses."""
@@ -30,12 +53,21 @@ class ExplainabilityEvaluator:
         """
         self.require_approach = require_approach
 
-    def evaluate(self, parsed_response: Dict[str, str]) -> Dict[str, Any]:
+    def evaluate(
+            self,
+            thought: str,
+            test_cases: str,
+            confidence: str,
+            completeness: str
+        ) -> ExplainabilityResult:
         """
         Evaluate explainability of response.
 
         Args:
-            parsed_response: Parsed LLM response with sections
+            thought: LLM's line of thought
+            test_cases: LLM's generated test cases
+            confidence: LLM's confidence level text
+            completeness: Explanation text
 
         Returns:
             Dictionary with:
@@ -45,9 +77,17 @@ class ExplainabilityEvaluator:
                 - has_tests: bool
                 - explainability_score: float (0-1)
         """
-        pass
+        return ExplainabilityResult(
+            confidence_level=self.extract_confidence(confidence),
+            thought=thought,
+            approach_quality=self.score_approach_quality(thought),
+            has_tests=bool(test_cases),
+            completeness=completeness,
+            completeness_score=self.evaluate_completeness(completeness),
+            explainability_score=0.0  # Placeholder, calculate below
+        )
 
-    def extract_confidence(self, confidence_text: str) -> ConfidenceLevel:
+    def extract_confidence(self, confidence: str) -> ConfidenceLevel:
         """
         Extract confidence level from text.
 
@@ -57,7 +97,40 @@ class ExplainabilityEvaluator:
         Returns:
             ConfidenceLevel enum
         """
-        pass
+        confidence_text = confidence.strip().lower()
+        if "high" in confidence_text:
+            return ConfidenceLevel.HIGH
+        elif "medium" in confidence_text:
+            return ConfidenceLevel.MEDIUM
+        elif "low" in confidence_text:
+            return ConfidenceLevel.LOW
+        else:
+            return ConfidenceLevel.UNKNOWN
+
+    def evaluate_completeness(self, completeness_text: str) -> int:
+        """
+        Evaluate completeness of explanation.
+
+        Args:
+            completeness_text: Explanation text
+
+        Returns:
+            Completeness score as integer
+        """
+        # Simple heuristic: count number of key aspects mentioned
+        score = 0.0
+        key_aspects = [
+            "algorithm",
+            "variables",
+            "functions",
+            "constraints",
+            "assumptions",
+            "edge cases"
+        ]
+        for aspect in key_aspects:
+            if aspect in completeness_text.lower():
+                score += 1
+        return score/len(key_aspects) * 100  
 
     def score_approach_quality(self, approach_text: str) -> float:
         """
