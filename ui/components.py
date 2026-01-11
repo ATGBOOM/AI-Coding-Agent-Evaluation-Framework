@@ -144,8 +144,10 @@ def render_explainability_section(result: Dict[str, Any]):
             st.write(explainability_results.thought)
 
     if explainability_results.completeness:
+        explanation=explainability_results.completeness
+        checklist="\n".join([f"- {'✅' if item in explainability_results.completeness_dict[True] else '❌'} {item.capitalize()}" for item in explainability_results.completeness_dict[True] + explainability_results.completeness_dict[False]])
         with st.expander("✅ Completeness Explanation", expanded=False):
-            st.write(explainability_results.completeness)
+            st.write("\n\n".join([explanation, "Key words:", checklist]))
 
 
 def render_code_section(result: Dict[str, Any]):
