@@ -129,17 +129,23 @@ def render_explainability_section(result: Dict[str, Any]):
     """
     st.subheader("💭 Explainability")
 
+    explainability_results = result.get('explainability_result')
+
+    if not explainability_results:
+        st.info("No explainability evaluation available")
+        return
+
     # Metrics grid
     render_metrics_grid(result, EXPLAINABILITY_METRICS, columns=4)
 
     # Detailed thought process
-    if result.get('thought'):
+    if explainability_results.thought:
         with st.expander("🧠 Line of Thought", expanded=True):
-            st.write(result['thought'])
+            st.write(explainability_results.thought)
 
-    if result.get('completeness'):
+    if explainability_results.completeness:
         with st.expander("✅ Completeness Explanation", expanded=False):
-            st.write(result['completeness'])
+            st.write(explainability_results.completeness)
 
 
 def render_code_section(result: Dict[str, Any]):
