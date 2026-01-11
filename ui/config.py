@@ -132,16 +132,16 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         metric_type=MetricType.TEXT,
         description="LLM's confidence in the solution (High/Medium/Low)",
         icon="🎓",
-        extractor=lambda result: result.get('explainability_result').confidence_level if result.get('explainability_result') else None
+        extractor=lambda result: str(result.get('explainability_result').confidence_level) if result.get('explainability_result') else None
     ),
     MetricConfig(
-        key="has_thought",
+        key="thought",
         label="Has Explanation",
         category=MetricCategory.EXPLAINABILITY,
         metric_type=MetricType.BINARY,
         description="Whether the LLM provided line of thought",
         icon="💭",
-        extractor=lambda result: result.get('explainability_result').has_thought if result.get('explainability_result') else None
+        extractor=lambda result: (result.get('explainability_result').thought is not None) if result.get('explainability_result') else False
     ),
     MetricConfig(
         key="has_tests",
@@ -150,16 +150,16 @@ EXPLAINABILITY_METRICS: List[MetricConfig] = [
         metric_type=MetricType.BINARY,
         description="Whether the LLM generated test cases",
         icon="🧪",
-        extractor=lambda result: bool(result.get('test_cases'))
+        extractor=lambda result: result.get('explainability_result').has_tests if result.get('explainability_result') else None
     ),
     MetricConfig(
         key="completeness",
         label="Completeness of Explanation",
         category=MetricCategory.EXPLAINABILITY,
-        metric_type=MetricType.COUNT,
+        metric_type=MetricType.PERCENTAGE,
         description="The completeness of the explanation provided",
         icon="✅",
-        extractor=lambda result: result.get('explainability_result').completeness if result.get('explainability_result') else None
+        extractor=lambda result: result.get('explainability_result').completeness_score if result.get('explainability_result') else None
     )
 ]
 
