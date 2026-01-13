@@ -83,7 +83,7 @@ with st.sidebar:
         try:
             with st.spinner("Initializing evaluation runner..."):
                 st.session_state.runner = EvaluationRunner()
-                st.session_state.context_evaluator = ContextHandlingEvaluator()
+                st.session_state.context_evaluator = ContextHandlingEvaluator(st.session_state.runner.llm)
                 st.session_state.context_tasks = load_context_tasks()
             st.success("✅ Evaluator initialized!")
         except Exception as e:

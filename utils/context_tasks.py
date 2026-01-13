@@ -27,7 +27,7 @@ def load_context_tasks() -> List[ContextTask]:
     This dataset is intentionally small and self-contained (files included inline)
     so we can test retrieval + utilisation without cloning real repos yet.
     """
-    dataset_path = Path(__file__).resolve().parents[1] / "datasets" / "context_tasks.json"
+    dataset_path = Path(__file__).resolve().parents[1] / "dataset" / "context_tasks.json"
     raw = json.loads(dataset_path.read_text(encoding="utf-8"))
 
     tasks: List[ContextTask] = []
