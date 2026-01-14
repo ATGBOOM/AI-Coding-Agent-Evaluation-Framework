@@ -5,7 +5,7 @@ These models ensure the LLM returns data in a consistent, parseable format
 with all required fields for evaluation.
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Literal
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -49,14 +49,84 @@ class LLMSolutionResponse(BaseModel):
         """Pydantic config."""
         use_enum_values = True
 
+class JudgeInfo(BaseModel):
+    type: Literal["human", "llm"]
+    name: str
+    version: Optional[str]
+
+class EvaluationMetadata(BaseModel):
+    benchmark: str = "HumanEval"
+    problem_id: str
+    model_name: str
+    model_version: Optional[str]
+    run_id: str
+    timestamp: str
+    judge: JudgeInfo
+
+class PromptTraceability(BaseModel):
+    score: int
+    max_score: int = 30
+    requirement_coverage_percent: int
+    missed_requirements: List[str]
+    incorrect_mappings: List[Dict[str, str]]
+    justification: str
+
+class AssumptionTransparency(BaseModel):
+    score: int
+    max_score: int = 20
+    assumptions_identified: List[Dict]
+    hidden_assumptions_detected: List[Dict]
+    justification: str
+
+class AlgorithmicRationale(BaseModel):
+    score: int
+    max_score: int = 20
+    algorithm_identified: bool
+    algorithm_description_accuracy: Literal[
+        "correct", "partially_correct", "incorrect"
+    ]
+    mentions_complexity: bool
+    tradeoffs_discussed: bool
+    overclaim_detected: bool
+    justification: str
+
+class EdgeCaseAwareness(BaseModel):
+    score: int
+    max_score: int = 15
+    edge_cases_mentioned: List[str]
+    edge_cases_in_tests: List[str]
+    missed_edge_cases: List[str]
+    false_edge_case_claims: List[str]
+    justification: str
+
+class ExplanationCodeConsistency(BaseModel):
+    score: int
+    max_score: int = 15
+    contradictions: List[Dict[str, str]]
+    phantom_features: List[str]
+    behavioral_alignment: Literal["high", "medium", "low"]
+    justification: str
+
+class ExplainabilityScores(BaseModel):
+    prompt_traceability: PromptTraceability
+    assumption_transparency: AssumptionTransparency
+    algorithmic_rationale: AlgorithmicRationale
+    edge_case_awareness: EdgeCaseAwareness
+    explanation_code_consistency: ExplanationCodeConsistency
+
+class FinalScores(BaseModel):
+    total_explainability_score: int
+    max_total_score: int = 100
+    normalized_score: float
+    explainability_grade: Literal["A", "B", "C", "D", "F"]
+
+class Notes(BaseModel):
+    strengths: List[str]
+    weaknesses: List[str]
+    confidence_level: ConfidenceLevel
+
 class LLMEvaluationResponse(BaseModel):
-    """Structured response from LLM for evaluation tasks."""
-
-    explainability_result_json: str = Field(
-        default=None,
-        description="Explainability evaluation results in JSON format"
-    )
-
-    class Config:
-        """Pydantic config."""
-        use_enum_values = True
+    evaluation_metadata: EvaluationMetadata
+    explainability_scores: ExplainabilityScores
+    final_scores: FinalScores
+    notes: Notes
