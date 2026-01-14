@@ -141,6 +141,7 @@ Provide your solution with:
 
         # Evaluate explainability
         explainability_result = self.explainability_evaluator.evaluate(
+            solution=response.solution,
             thought=response.thought,
             test_cases=response.test_cases,
             confidence=response.confidence,

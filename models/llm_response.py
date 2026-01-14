@@ -48,3 +48,15 @@ class LLMSolutionResponse(BaseModel):
     class Config:
         """Pydantic config."""
         use_enum_values = True
+
+class LLMEvaluationResponse(BaseModel):
+    """Structured response from LLM for evaluation tasks."""
+
+    explainability_result_json: str = Field(
+        default=None,
+        description="Explainability evaluation results in JSON format"
+    )
+
+    class Config:
+        """Pydantic config."""
+        use_enum_values = True
