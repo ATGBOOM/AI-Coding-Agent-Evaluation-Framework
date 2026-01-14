@@ -69,12 +69,9 @@ class LLMEvaluator:
 
 
     def evaluate_explainability(self, explanation: str, code: str, tests: str):
-        schema_path = os.path.join(os.path.dirname(__file__), "explainability_judge_schema.json")
-        with open(schema_path, "r", encoding = "utf-8") as f:
-            schema = f.read()
 
         prompt_template = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert evaluator of code explanations."),
+            ("system", "You are an expert evaluator of code explanations. Respond ONLY with valid JSON"),
             ("user", """Evaluate the following explanation and code for completeness and clarity:
 
 Code:
@@ -85,21 +82,16 @@ Tests:
 
 Explanation:
 {explanation}
-             
-Please provide your evaluation in the following JSON format according to this schema:
-{schema}
 """)
         ])
         formatted_prompt = prompt_template.format_messages(
             code=code,
             tests=tests,
             explanation=explanation,
-            schema=schema
         )
-        response: LLMEvaluationResponse = None
-        temp = self.structured_llm.invoke(formatted_prompt)
-        print(temp.content)
-        return response.explainability_result_json
+        response: LLMEvaluationResponse = self.structured_llm.invoke(formatted_prompt)
+        print(response)
+        return response
     
 class ExplainabilityEvaluator:
     """Evaluates explainability of LLM responses."""
@@ -146,17 +138,13 @@ class ExplainabilityEvaluator:
             tests=test_cases
         )
 
-        print(result)
-
         return ExplainabilityResult(
             confidence_level=self.extract_confidence(confidence),
             thought=thought,
-            approach_quality=self.score_approach_quality(thought),
             has_tests=bool(test_cases),
             completeness=completeness,
             completeness_dict=completeness_dict,
             completeness_score=len(completeness_dict[True])/(len(completeness_dict[False]) + len(completeness_dict[True])) * 100,
-            explainability_score=0.0  # Placeholder, calculate below
         )
 
     def extract_confidence(self, confidence: str) -> ConfidenceLevel:
