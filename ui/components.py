@@ -149,6 +149,102 @@ def render_explainability_section(result: Dict[str, Any]):
         with st.expander("✅ Completeness Explanation", expanded=False):
             st.write("\n\n".join([explanation, "Key words:", checklist]))
 
+    with st.expander("🧠 Explainability Evaluation Results", expanded=False):
+
+        st.subheader("Final Score")
+        col1, col2, col3, col4 = st.columns(4)
+
+        llm_eval_results = explainability_results.llm_evaluation
+
+        col1.metric(
+            "Total Score",
+            f"{llm_eval_results.final_scores.total_explainability_score} / {llm_eval_results.final_scores.max_total_score}"
+        )
+        col2.metric(
+            "Normalized",
+            f"{llm_eval_results.final_scores.normalized_score:.2f}"
+        )
+        col3.metric(
+            "Grade",
+            llm_eval_results.final_scores.explainability_grade
+        )
+        col4.metric(
+            "Confidence",
+            llm_eval_results.notes.confidence_level.capitalize()
+        )
+
+        st.divider()
+
+        # ---------- Per-Dimension Scores ----------
+        st.subheader("Explainability Dimensions")
+
+        scores = llm_eval_results.explainability_scores
+
+        def score_block(title, score, max_score, justification):
+            with st.container(border=True):
+                st.markdown(f"**{title}**")
+                st.progress(score / max_score)
+                st.caption(f"Score: {score} / {max_score}")
+                st.write(justification)
+
+        score_block(
+            "Prompt Traceability",
+            scores.prompt_traceability.score,
+            scores.prompt_traceability.max_score,
+            scores.prompt_traceability.justification
+        )
+
+        score_block(
+            "Assumption Transparency",
+            scores.assumption_transparency.score,
+            scores.assumption_transparency.max_score,
+            scores.assumption_transparency.justification
+        )
+
+        score_block(
+            "Algorithmic Rationale",
+            scores.algorithmic_rationale.score,
+            scores.algorithmic_rationale.max_score,
+            scores.algorithmic_rationale.justification
+        )
+
+        score_block(
+            "Edge Case Awareness",
+            scores.edge_case_awareness.score,
+            scores.edge_case_awareness.max_score,
+            scores.edge_case_awareness.justification
+        )
+
+        score_block(
+            "Explanation–Code Consistency",
+            scores.explanation_code_consistency.score,
+            scores.explanation_code_consistency.max_score,
+            scores.explanation_code_consistency.justification
+        )
+
+        st.divider()
+
+        # ---------- Strengths & Weaknesses ----------
+        st.subheader("Summary Notes")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Strengths**")
+            for s in llm_eval_results.notes.strengths:
+                st.write(f"✅ {s}")
+
+        with col2:
+            st.markdown("**Weaknesses**")
+            for w in llm_eval_results.notes.weaknesses:
+                st.write(f"⚠️ {w}")
+
+        st.divider()
+
+        # ---------- Metadata (collapsed) ----------
+        with st.expander("Evaluation Metadata"):
+            st.json(llm_eval_results.evaluation_metadata.model_dump())
+
 
 def render_code_section(result: Dict[str, Any]):
     """
