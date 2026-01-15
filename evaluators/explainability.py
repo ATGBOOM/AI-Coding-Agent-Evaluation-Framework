@@ -29,24 +29,22 @@ class ExplainabilityResult:
     """Result from explainability evaluation."""
     confidence_level: ConfidenceLevel
     thought: str
-    approach_quality: float
     has_tests: bool
     completeness: str
     completeness_dict: Dict[bool, list[str]]
     completeness_score: int
-    explainability_score: float
+    llm_evaluation: LLMEvaluationResponse
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'confidence_level': self.confidence_level,
             'thought': self.thought,
-            'approach_quality': self.approach_quality,
             'has_tests': self.has_tests,
             'completeness': self.completeness,
             'completeness_dict': self.completeness_dict,
             'completeness_score': self.completeness_score,
-            'explainability_score': self.explainability_score
+            'llm_evaluation': self.llm_evaluation
         }
 
 @dataclass
@@ -90,7 +88,6 @@ Explanation:
             explanation=explanation,
         )
         response: LLMEvaluationResponse = self.structured_llm.invoke(formatted_prompt)
-        print(response)
         return response
     
 class ExplainabilityEvaluator:
@@ -117,18 +114,14 @@ class ExplainabilityEvaluator:
         Evaluate explainability of response.
 
         Args:
+            solution: LLM's code solution
             thought: LLM's line of thought
             test_cases: LLM's generated test cases
             confidence: LLM's confidence level text
             completeness: Explanation text
 
         Returns:
-            Dictionary with:
-                - confidence_level: ConfidenceLevel
-                - has_approach: bool
-                - approach_quality: float (0-1)
-                - has_tests: bool
-                - explainability_score: float (0-1)
+            ExplainabilityResult with evaluation metrics
         """
         completeness_dict = self.evaluate_completeness(completeness)
         llm = LLMEvaluator()
@@ -145,6 +138,7 @@ class ExplainabilityEvaluator:
             completeness=completeness,
             completeness_dict=completeness_dict,
             completeness_score=len(completeness_dict[True])/(len(completeness_dict[False]) + len(completeness_dict[True])) * 100,
+            llm_evaluation=result
         )
 
     def extract_confidence(self, confidence: str) -> ConfidenceLevel:
@@ -178,7 +172,6 @@ class ExplainabilityEvaluator:
             Dictionary indicating presence of key aspects
         """
         # Simple heuristic: count number of key aspects mentioned
-        score = 0.0
 
         key_aspect_patterns = {
             "algorithm": r"\balgorithm(s)?\b",
@@ -196,36 +189,3 @@ class ExplainabilityEvaluator:
             else:
                 found[False].append(name)
         return found
-
-    def score_approach_quality(self, approach_text: str) -> float:
-        """
-        Score quality of approach explanation.
-
-        Args:
-            approach_text: Approach explanation text
-
-        Returns:
-            Quality score between 0 and 1
-        """
-        pass
-
-    def calculate_explainability_score(
-        self,
-        confidence_level: ConfidenceLevel,
-        has_approach: bool,
-        approach_quality: float,
-        has_tests: bool
-    ) -> float:
-        """
-        Calculate overall explainability score.
-
-        Args:
-            confidence_level: Extracted confidence level
-            has_approach: Whether approach is provided
-            approach_quality: Quality score of approach
-            has_tests: Whether tests are provided
-
-        Returns:
-            Overall score between 0 and 1
-        """
-        pass
