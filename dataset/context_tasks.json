@@ -1,0 +1,44 @@
+[
+  {
+    "id": "CTX001",
+    "title": "Cross-file parameter mismatch",
+    "question": "In checkout.py, discount_percent is an integer like 25. How should checkout.py call apply_discount() so the discount is applied correctly?",
+    "expected_answer": "It should call apply_discount(price, discount_percent/100).",
+    "gold_files": ["discount.py", "checkout.py"],
+    "files": [
+      {
+        "path": "discount.py",
+        "content": "def apply_discount(price: float, discount: float) -> float:\n    \"\"\"discount is a fraction between 0 and 1 (e.g., 0.25).\"\"\"\n    if discount < 0 or discount > 1:\n        raise ValueError(\"discount must be between 0 and 1\")\n    return price * (1 - discount)\n"
+      },
+      {
+        "path": "checkout.py",
+        "content": "from discount import apply_discount\n\ndef final_price(price: float, discount_percent: int) -> float:\n    # discount_percent is an integer like 25\n    return apply_discount(price, discount_percent)\n"
+      },
+      {
+        "path": "readme.txt",
+        "content": "This is a tiny demo project.\n"
+      }
+    ]
+  },
+  {
+    "id": "CTX002",
+    "title": "Cross-file constant usage",
+    "question": "What is the value of DEFAULT_TIMEOUT used by api_client.py?",
+    "expected_answer": "DEFAULT_TIMEOUT is 30.",
+    "gold_files": ["config.py"],
+    "files": [
+      {
+        "path": "config.py",
+        "content": "DEFAULT_TIMEOUT = 30\nBASE_URL = \"https://example.com\"\n"
+      },
+      {
+        "path": "api_client.py",
+        "content": "from config import DEFAULT_TIMEOUT, BASE_URL\n\ndef get_timeout():\n    return DEFAULT_TIMEOUT\n"
+      },
+      {
+        "path": "utils.py",
+        "content": "def noop():\n    return None\n"
+      }
+    ]
+  }
+]
