@@ -44,3 +44,7 @@ class LLMSolutionResponse(BaseModel):
     class Config:
         """Pydantic config."""
         use_enum_values = True
+
+    class ContextAnswer(BaseModel):
+        """LLM response schema for context-handling QA."""
+        answer: str = Field(description="A short, direct answer to the question.")

@@ -85,6 +85,7 @@ with st.sidebar:
                 st.session_state.runner = EvaluationRunner()
                 st.session_state.context_evaluator = ContextHandlingEvaluator(st.session_state.runner.llm)
                 st.session_state.context_tasks = load_context_tasks()
+            st.session_state.evaluator_initialized = True
             st.success("✅ Evaluator initialized!")
         except Exception as e:
             st.error(f"❌ Initialization failed: {str(e)}")
@@ -206,7 +207,7 @@ if page == "Single Task Evaluation":
 elif page == "Context Handling":
     st.header("Context Handling (Retrieval + Utilisation)")
 
-    if not st.session_state.evaluator_initialized:
+    if st.session_state.runner is None or st.session_state.context_evaluator is None:
         st.warning("Please initialize the evaluator from the sidebar first.")
     else:
         tasks = st.session_state.context_tasks

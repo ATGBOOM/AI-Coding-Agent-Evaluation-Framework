@@ -3,14 +3,11 @@ from typing import Dict, Any, List, Tuple
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from pydantic import BaseModel, Field
 
 from utils.retrieval import keyword_retrieve
 from utils.context_tasks import ContextTask
 
-
-class ContextAnswer(BaseModel):
-    answer: str = Field(description="A short, direct answer to the question.")
+from models.llm_response import ContextAnswer
 
 
 def _normalise(text: str) -> str:
@@ -71,7 +68,7 @@ class ContextHandlingEvaluator:
         # 3) utilisation (answer correctness)
         expected = _normalise(task.expected_answer)
         got = _normalise(model_answer)
-        answer_correct = 1.0 if expected in got else 0.0
+        answer_correct = 1.0 if (expected in got or got in expected) else 0.0
 
         # 4) combined score (simple average for MVP)
         context_score = (recall_at_k + answer_correct) / 2.0
